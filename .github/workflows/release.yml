@@ -1,0 +1,52 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build UI
+        working-directory: web
+        run: npm run build
+
+      - name: Stage release tree
+        run: |
+          mkdir -p out/legends_cases
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='web/node_modules' \
+            --exclude='web/src' \
+            --exclude='web/public' \
+            --exclude='web/package.json' \
+            --exclude='web/package-lock.json' \
+            --exclude='web/vite.config.js' \
+            --exclude='web/postcss.config.js' \
+            --exclude='web/tailwind.config.js' \
+            --exclude='web/index.html' \
+            ./ out/legends_cases/
+          cd out && zip -r "../legends_cases-${GITHUB_REF_NAME}.zip" legends_cases
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: legends_cases-*.zip
+          generate_release_notes: true
